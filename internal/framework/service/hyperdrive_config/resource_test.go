@@ -104,6 +104,65 @@ func TestAccCloudflareHyperdriveConfig_Basic(t *testing.T) {
 	})
 }
 
+func TestAccCloudflareHyperdriveConfig_HyperdriveOverAccess(t *testing.T) {
+	acctest.TestAccSkipForDefaultAccount(t, "Requires real Postgres instance to be available.")
+
+	rnd := utils.GenerateRandomResourceName()
+	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	resourceName := "cloudflare_hyperdrive_config." + rnd
+
+	var origin = cfv1.HyperdriveConfigOrigin{
+		Database:           "database",
+		Host:               "host.example.com",
+		Scheme:             "postgres",
+		User:               "user",
+		AccessClientID:     "aaf0ae554f15dfaf32a55d6d4d732ded.access",
+		AccessClientSecret: "2fe4b228fc5b00a7436d06c074f214ff9763c4f24162b37ea2c2f701af0a2b4f",
+	}
+
+	var disabled = true
+
+	var caching = cfv1.HyperdriveConfigCaching{
+		Disabled: &disabled,
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.TestAccPreCheck(t) },
+		ProtoV6ProviderFactories: acctest.TestAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testHyperdriveOverAccessConfigConfig(
+					rnd,
+					accountID,
+					rnd,
+					"password",
+					origin,
+					caching,
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name", rnd),
+					resource.TestCheckResourceAttr(resourceName, "account_id", accountID),
+					resource.TestCheckResourceAttr(resourceName, "origin.database", "database"),
+					resource.TestCheckResourceAttr(resourceName, "origin.host", "host.example.com"),
+					resource.TestCheckResourceAttr(resourceName, "origin.scheme", "postgres"),
+					resource.TestCheckResourceAttr(resourceName, "origin.user", "user"),
+					resource.TestCheckResourceAttr(resourceName, "origin.password", "password"),
+					resource.TestCheckResourceAttr(resourceName, "origin.access_client_id", "aaf0ae554f15dfaf32a55d6d4d732ded.access"),
+					resource.TestCheckResourceAttr(resourceName, "origin.access_client_secret", "2fe4b228fc5b00a7436d06c074f214ff9763c4f24162b37ea2c2f701af0a2b4f.access"),
+					resource.TestCheckResourceAttr(resourceName, "caching.disabled", "true"),
+				),
+			},
+			{
+				ResourceName:            resourceName,
+				ImportStateIdPrefix:     fmt.Sprintf("%s/", accountID),
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"origin.password"},
+			},
+		},
+	})
+}
+
 func TestAccCloudflareHyperdriveConfig_Minimum(t *testing.T) {
 	acctest.TestAccSkipForDefaultAccount(t, "Requires real Postgres instance to be available.")
 
@@ -174,6 +233,30 @@ func testHyperdriveConfigConfig(
 			}
 		}`,
 		rnd, accountId, name, password, origin.Database, origin.Host, fmt.Sprintf("%d", origin.Port), origin.Scheme, origin.User, fmt.Sprintf("%t", *caching.Disabled),
+	)
+}
+
+func testHyperdriveOverAccessConfigConfig(
+	rnd, accountId, name string, password string, origin cfv1.HyperdriveConfigOrigin, caching cfv1.HyperdriveConfigCaching,
+) string {
+	return fmt.Sprintf(`
+		resource "cloudflare_hyperdrive_config" "%[1]s" {
+			account_id = "%[2]s"
+			name       = "%[3]s"
+			origin     = {
+				password             = "%[4]s"
+				database             = "%[5]s"
+				host                 = "%[6]s"
+				scheme               = "%[7]s"
+				user                 = "%[8]s"
+				access_client_id     = "%[9]s"
+				access_client_secret = "%[10]s"
+			}
+			caching = {
+				disabled               = %[11]s
+			}
+		}`,
+		rnd, accountId, name, password, origin.Database, origin.Host, origin.Scheme, origin.User, origin.AccessClientID, origin.AccessClientSecret, fmt.Sprintf("%t", *caching.Disabled),
 	)
 }
 

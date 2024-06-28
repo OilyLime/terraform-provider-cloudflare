@@ -67,13 +67,15 @@ func (r *HyperdriveConfigResource) Create(ctx context.Context, req resource.Crea
 	createHyperdriveConfig, err := r.client.V1.CreateHyperdriveConfig(ctx, cfv1.AccountIdentifier(data.AccountID.ValueString()),
 		cfv1.CreateHyperdriveConfigParams{
 			Name: config.Name,
-			Origin: cfv1.HyperdriveConfigOrigin{
-				Database: config.Origin.Database,
+			Origin: cfv1.HyperdriveConfigOriginWithPassword{
+				HyperdriveConfigOrigin: cfv1.HyperdriveConfigOrigin{
+					Database: config.Origin.Database,
+					Host:     config.Origin.Host,
+					Port:     config.Origin.Port,
+					Scheme:   config.Origin.Scheme,
+					User:     config.Origin.User,
+				},
 				Password: config.Origin.Password,
-				Host:     config.Origin.Host,
-				Port:     config.Origin.Port,
-				Scheme:   config.Origin.Scheme,
-				User:     config.Origin.User,
 			},
 			Caching: cfv1.HyperdriveConfigCaching{
 				Disabled: config.Caching.Disabled,
@@ -128,15 +130,16 @@ func (r *HyperdriveConfigResource) Update(ctx context.Context, req resource.Upda
 	config := buildHyperdriveConfigFromModel(data, caching)
 
 	updatedConfig, err := r.client.V1.UpdateHyperdriveConfig(ctx, cfv1.AccountIdentifier(data.AccountID.ValueString()), cfv1.UpdateHyperdriveConfigParams{
-		Name:         config.Name,
-		HyperdriveID: config.ID,
-		Origin: cfv1.HyperdriveConfigOrigin{
-			Database: config.Origin.Database,
+		Name: config.Name,
+		Origin: cfv1.HyperdriveConfigOriginWithPassword{
+			HyperdriveConfigOrigin: cfv1.HyperdriveConfigOrigin{
+				Database: config.Origin.Database,
+				Host:     config.Origin.Host,
+				Port:     config.Origin.Port,
+				Scheme:   config.Origin.Scheme,
+				User:     config.Origin.User,
+			},
 			Password: config.Origin.Password,
-			Host:     config.Origin.Host,
-			Port:     config.Origin.Port,
-			Scheme:   config.Origin.Scheme,
-			User:     config.Origin.User,
 		},
 		Caching: cfv1.HyperdriveConfigCaching{
 			Disabled: config.Caching.Disabled,
@@ -179,15 +182,16 @@ func (r *HyperdriveConfigResource) ImportState(ctx context.Context, req resource
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), idParts[1])...)
 }
 
-func buildHyperdriveConfigFromModel(config *HyperdriveConfigModel, caching *HyperdriveConfigCachingModel) cfv1.HyperdriveConfig {
-	built := cfv1.HyperdriveConfig{
-		ID:   config.ID.ValueString(),
+func buildHyperdriveConfigFromModel(config *HyperdriveConfigModel, caching *HyperdriveConfigCachingModel) cfv1.CreateHyperdriveConfigParams {
+	built := cfv1.CreateHyperdriveConfigParams{
 		Name: config.Name.ValueString(),
-		Origin: cfv1.HyperdriveConfigOrigin{
-			Database: config.Origin.Database.ValueString(),
+		Origin: cfv1.HyperdriveConfigOriginWithPassword{
+			HyperdriveConfigOrigin: cfv1.HyperdriveConfigOrigin{
+				Database: config.Origin.Database.ValueString(),
+				Host:     config.Origin.Host.ValueString(),
+				Port:     int(config.Origin.Port.ValueInt64()),
+			},
 			Password: config.Origin.Password.ValueString(),
-			Host:     config.Origin.Host.ValueString(),
-			Port:     int(config.Origin.Port.ValueInt64()),
 		},
 	}
 
@@ -227,19 +231,26 @@ func buildHyperdriveConfigModelFromHyperdriveConfig(ctx context.Context, data *H
 		},
 	)
 
+	origin := HyperdriveConfigOriginModel{
+		Database: flatteners.String(config.Origin.Database),
+		Host:     flatteners.String(config.Origin.Host),
+		User:     flatteners.String(config.Origin.User),
+		Scheme:   scheme,
+		Password: password,
+	}
+	if config.Origin.AccessClientID != "" && config.Origin.AccessClientSecret != "" {
+		origin.AccessClientID = flatteners.String(config.Origin.AccessClientID)
+		origin.AccessClientSecret = flatteners.String(config.Origin.AccessClientSecret)
+	} else {
+		origin.Port = flatteners.Int64(int64(config.Origin.Port))
+	}
+
 	built := HyperdriveConfigModel{
 		AccountID: data.AccountID,
 		ID:        flatteners.String(config.ID),
 		Name:      flatteners.String(config.Name),
-		Origin: &HyperdriveConfigOriginModel{
-			Database: flatteners.String(config.Origin.Database),
-			Host:     flatteners.String(config.Origin.Host),
-			Port:     flatteners.Int64(int64(config.Origin.Port)),
-			User:     flatteners.String(config.Origin.User),
-			Scheme:   scheme,
-			Password: password,
-		},
-		Caching: caching,
+		Origin:    &origin,
+		Caching:   caching,
 	}
 
 	return &built, diags

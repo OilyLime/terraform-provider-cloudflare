@@ -13,21 +13,33 @@ type HyperdriveConfigModel struct {
 	Caching   types.Object                 `tfsdk:"caching"`
 }
 
+const (
+	HyperdriveConfigOriginTypeHostAndPort      = "host_and_port"
+	HyperdriveConfigOriginTypeCloudflareAccess = "cf_access"
+)
+
 type HyperdriveConfigOriginModel struct {
-	Database types.String `tfsdk:"database"`
-	Password types.String `tfsdk:"password"`
-	Host     types.String `tfsdk:"host"`
-	Port     types.Int64  `tfsdk:"port"`
-	Scheme   types.String `tfsdk:"scheme"`
-	User     types.String `tfsdk:"user"`
+	Type               types.String `tfsdk:"type"`
+	Database           types.String `tfsdk:"database"`
+	Password           types.String `tfsdk:"password"`
+	Host               types.String `tfsdk:"host"`
+	Port               types.Int64  `tfsdk:"port"`
+	Scheme             types.String `tfsdk:"scheme"`
+	User               types.String `tfsdk:"user"`
+	AccessClientID     types.String `tfsdk:"access_client_id"`
+	AccessClientSecret types.String `tfsdk:"access_client_secret"`
 }
 
 type HyperdriveConfigCachingModel struct {
-	Disabled types.Bool `tfsdk:"disabled"`
+	Disabled             types.Bool  `tfsdk:"disabled"`
+	MaxAge               types.Int64 `tfsdk:"max_age"`
+	StaleWhileRevalidate types.Int64 `tfsdk:"stale_while_revalidate"`
 }
 
 func (m HyperdriveConfigCachingModel) AttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"disabled": types.BoolType,
+		"disabled":               types.BoolType,
+		"max_age":                types.Int64Type,
+		"stale_while_revalidate": types.Int64Type,
 	}
 }
